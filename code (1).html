@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberSafe - Relate Anonimamente Violações Digitais</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        #map { height: 400px; }
+        
+        .violation-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid;
+        }
+        .violation-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chip {
+            transition: all 0.2s ease;
+        }
+        .chip:hover {
+            transform: scale(1.05);
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="bg-purple-900 text-white">
+        <header class="container mx-auto px-4 py-8">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <img src="https://placehold.co/60x60/7e22ce/white?text=CS" alt="Logo CyberSafe - Escudo digital com símbolo de segurança" class="rounded-full">
+                    <h1 class="text-2xl font-bold">CyberSafe</h1>
+                </div>
+                <nav>
+                    <ul class="flex space-x-6">
+                        <li><a href="#report" class="hover:text-purple-200">Registrar Caso</a></li>
+                        <li><a href="#stats" class="hover:text-purple-200">Estatísticas</a></li>
+                        <li><a href="#map-section" class="hover:text-purple-200">Mapa</a></li>
+                        <li><a href="#about" class="hover:text-purple-200">Sobre</a></li>
+                    </ul>
+                </nav>
+            </div>
+            
+            <div class="mt-16 text-center">
+                <h2 class="text-4xl font-bold mb-4">Sua Voz Contra Violências Digitais</h2>
+                <p class="text-xl max-w-3xl mx-auto">Denuncie anonimamente casos de cyberbullying, assédio e invasão de privacidade. Juntos criamos dados para combater essas violências.</p>
+                <div class="mt-8">
+                    <a href="#report" class="bg-white text-purple-900 px-6 py-3 rounded-lg font-bold hover:bg-purple-100 transition">Registrar um Caso</a>
+                </div>
+            </div>
+        </header>
+    </div>
+
+    <main class="container mx-auto px-4 py-12">
+        <section id="stats" class="mb-16 fade-in">
+            <h2 class="text-3xl font-bold mb-8 text-center">Estatísticas em Tempo Real</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-lg shadow text-center">
+                    <h3 class="text-2xl font-bold text-purple-900">1,243</h3>
+                    <p class="text-gray-600">Relatos Registrados</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow text-center">
+                    <h3 class="text-2xl font-bold text-red-600">754</h3>
+                    <p class="text-gray-600">Cyberbullying</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow text-center">
+                    <h3 class="text-2xl font-bold text-blue-600">312</h3>
+                    <p class="text-gray-600">Assédio Digital</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow text-center">
+                    <h3 class="text-2xl font-bold text-green-600">177</h3>
+                    <p class="text-gray-600">Invasão de Privacidade</p>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-lg shadow mb-8">
+                <canvas id="violationsChart"></canvas>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <canvas id="platformsChart"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <canvas id="genderChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="map-section" class="mb-16 fade-in">
+            <h2 class="text-3xl font-bold mb-8 text-center">Mapa de Ocorrências</h2>
+            <div id="map" class="rounded-lg shadow-lg"></div>
+        </section>
+
+        <section id="report" class="mb-16 fade-in">
+            <div class="bg-purple-50 rounded-lg p-8 shadow-lg">
+                <h2 class="text-3xl font-bold mb-6 text-purple-900">Registre um Caso Anonimamente</h2>
+                <form id="reportForm" class="space-y-6">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Tipo de Violência*</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" data-violation="cyberbullying" class="chip px-4 py-2 bg-red-100 text-red-800 rounded-full">Cyberbullying</button>
+                            <button type="button" data-violation="assedio" class="chip px-4 py-2 bg-blue-100 text-blue-800 rounded-full">Assédio Digital</button>
+                            <button type="button" data-violation="privacidade" class="chip px-4 py-2 bg-green-100 text-green-800 rounded-full">Invasão de Privacidade</button>
+                            <button type="button" data-violation="fake" class="chip px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full">Perfil Fake</button>
+                            <button type="button" data-violation="difamacao" class="chip px-4 py-2 bg-indigo-100 text-indigo-800 rounded-full">Difamação</button>
+                        </div>
+                        <input type="hidden" id="violationType" name="violationType" required>
+                    </div>
+                    
+                    <div>
+                        <label for="platform" class="block text-gray-700 font-medium mb-2">Plataforma onde ocorreu*</label>
+                        <select id="platform" name="platform" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" required>
+                            <option value="">Selecione...</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="twitter">Twitter/X</option>
+                            <option value="tiktok">TikTok</option>
+                            <option value="discord">Discord</option>
+                            <option value="outros">Outros</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="description" class="block text-gray-700 font-medium mb-2">Descreva o que aconteceu*</label>
+                        <textarea id="description" name="description" rows="4" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="Descreva detalhadamente o ocorrido..." required></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Localização (opcional)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="city" name="city" placeholder="Cidade" class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            <input type="text" id="state" name="state" placeholder="Estado" class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" name="anonymous" checked class="rounded text-purple-500 focus:ring-purple-500">
+                            <span class="ml-2">Manter meu relato totalmente anônimo</span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition">Enviar Relato</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="recent" class="mb-16 fade-in">
+            <h2 class="text-3xl font-bold mb-8 text-center">Relatos Recentes</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="violation-card bg-white p-6 rounded-lg shadow border-l-red-500">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">Cyberbullying</span>
+                        <span class="text-gray-500 text-sm">Ontem</span>
+                    </div>
+                    <p class="text-gray-700 mb-4">Recebi mensagens constrangedoras e ameaçadoras em um grupo do WhatsApp após uma discussão na escola.</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500">Instagram</span>
+                        <span class="text-sm text-gray-500">São Paulo, SP</span>
+                    </div>
+                </div>
+                
+                <div class="violation-card bg-white p-6 rounded-lg shadow border-l-blue-500">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">Assédio Digital</span>
+                        <span class="text-gray-500 text-sm">2 dias atrás</span>
+                    </div>
+                    <p class="text-gray-700 mb-4">Um desconhecido continuou me enviando mensagens íntimas mesmo após eu pedir para parar várias vezes.</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500">Facebook</span>
+                        <span class="text-sm text-gray-500">Rio de Janeiro, RJ</span>
+                    </div>
+                </div>
+                
+                <div class="violation-card bg-white p-6 rounded-lg shadow border-l-green-500">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Invasão Privacidade</span>
+                        <span class="text-gray-500 text-sm">3 dias atrás</span>
+                    </div>
+                    <p class="text-gray-700 mb-4">Descobri que fotos privadas minhas foram compartilhadas sem meu consentimento em um grupo de Telegram.</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500">Telegram</span>
+                        <span class="text-sm text-gray-500">Belo Horizonte, MG</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="mb-16 fade-in">
+            <div class="bg-white p-8 rounded-lg shadow-lg">
+                <h2 class="text-3xl font-bold mb-6 text-purple-900">Sobre o Projeto</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-xl font-bold mb-4 text-purple-800">Nossa Missão</h3>
+                        <p class="text-gray-700 mb-4">O Violências Digitais é uma plataforma colaborativa que visa mapear e dar visibilidade às violações de direitos que ocorrem no ambiente digital.</p>
+                        <p class="text-gray-700">Através do registro anônimo de relatos, buscamos identificar padrões, gerar estatísticas confiáveis e fornecer subsídios para políticas públicas de prevenção e combate às violências digitais.</p>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-xl font-bold mb-4 text-purple-800">Como Funciona</h3>
+                        <ul class="list-disc pl-5 space-y-2 text-gray-700">
+                            <li>Registros totalmente anônimos para proteção dos usuários</li>
+                            <li>Dados agregados para análise de padrões e tendências</li>
+                            <li>Mapas interativos mostrando distribuição geográfica</li>
+                            <li>Relatórios periódicos compartilhados com autoridades e pesquisadores</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mt-8 pt-8 border-t">
+                    <h3 class="text-xl font-bold mb-4 text-purple-800">Equipe</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="text-center">
+                            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/b41e2a79-609b-4a9b-a1a3-01816541ab18.png" alt="Foto de perfil - Ana Maria, pesquisadora em psicologia digital com cabelos curtos escuros" class="rounded-full mx-auto mb-2">
+                            <h4 class="font-medium">Ana Maria</h4>
+                            <p class="text-sm text-gray-600">Psicologia Digital</p>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/e0967c94-5749-412e-b597-b0e94422cf79.png" alt="Foto de perfil - Carlos Rocha, especialista em segurança digital com óculos" class="rounded-full mx-auto mb-2">
+                            <h4 class="font-medium">Carlos Rocha</h4>
+                            <p class="text-sm text-gray-600">Segurança Digital</p>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/840d15bb-3ed2-4d97-8db3-548861d9dc5d.png" alt="Foto de perfil - Juliana Santos, desenvolvedora front-end sorrindo" class="rounded-full mx-auto mb-2">
+                            <h4 class="font-medium">Juliana Santos</h4>
+                            <p class="text-sm text-gray-600">Desenvolvimento</p>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/1cef7790-adf2-4aa0-8e1b-ff756f238af9.png" alt="Foto de perfil - Luiz Mendes, advogado especialista em direitos digitais com gravata" class="rounded-full mx-auto mb-2">
+                            <h4 class="font-medium">Luiz Mendes</h4>
+                            <p class="text-sm text-gray-600">Direito Digital</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4 text-purple-400">CyberSafe</h3>
+                    <p class="text-gray-400">Plataforma segura para denúncia anônima de violações digitais.</p>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-4 text-purple-400">Links Rápidos</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#report" class="text-gray-400 hover:text-white transition">Registrar Caso</a></li>
+                        <li><a href="#stats" class="text-gray-400 hover:text-white transition">Estatísticas</a></li>
+                        <li><a href="#map-section" class="text-gray-400 hover:text-white transition">Mapa</a></li>
+                        <li><a href="#about" class="text-gray-400 hover:text-white transition">Sobre</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-4 text-purple-400">Recursos</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Como se Proteger</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Legislação</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Canais de Ajuda</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Materiais Educativos</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-4 text-purple-400">Contato</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li>contato@violenciasdigitais.org</li>
+                        <li>+55 11 98765-4321</li>
+                        <li class="flex space-x-4 mt-4">
+                            <a href="#"><img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/c8564ac2-afc4-4c55-ae84-610d4f41c478.png" alt="Ícone Facebook - link para nossa página"></a>
+                            <a href="#"><img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/cffdeb16-f6e8-49d4-bdaf-1f8e9cbc618d.png" alt="Ícone Instagram - link para nosso perfil"></a>
+                            <a href="#"><img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/2b016f0d-0e21-454e-b82a-435abb90e776.png" alt="Ícone Twitter - link para nosso twitter"></a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-500">
+                <p>© 2023 CyberSafe App. Todos os direitos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Selecionar tipo de violência
+        document.querySelectorAll('.chip').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.chip').forEach(btn => btn.classList.remove('bg-purple-200'));
+                this.classList.add('bg-purple-200');
+                document.getElementById('violationType').value = this.dataset.violation;
+            });
+        });
+        
+        // Formulário
+        document.getElementById('reportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!document.getElementById('violationType').value) {
+                alert('Por favor, selecione o tipo de violência.');
+                return;
+            }
+            
+            // Simular envio (em implementação real seria AJAX)
+            alert('Seu relato foi enviado com sucesso. Obrigado por contribuir com essa causa!');
+            this.reset();
+            document.querySelectorAll('.chip').forEach(btn => btn.classList.remove('bg-purple-200'));
+        });
+        
+        // Configurar gráficos
+        document.addEventListener('DOMContentLoaded', function() {
+            // Gráfico de violações por tipo
+            const ctx1 = document.getElementById('violationsChart').getContext('2d');
+            new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['Cyberbullying', 'Assédio', 'Privacidade', 'Perfil Fake', 'Difamação'],
+                    datasets: [{
+                        label: 'Relatos por Tipo',
+                        data: [754, 312, 177, 89, 56],
+                        backgroundColor: [
+                            'rgba(220, 38, 38, 0.7)',
+                            'rgba(59, 130, 246, 0.7)',
+                            'rgba(16, 185, 129, 0.7)',
+                            'rgba(234, 179, 8, 0.7)',
+                            'rgba(99, 102, 241, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(220, 38, 38, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(234, 179, 8, 1)',
+                            'rgba(99, 102, 241, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Distribuição de Relatos por Tipo de Violação',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Gráfico de plataformas
+            const ctx2 = document.getElementById('platformsChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['WhatsApp', 'Instagram', 'Facebook', 'Twitter/X', 'TikTok', 'Discord'],
+                    datasets: [{
+                        label: 'Plataformas',
+                        data: [420, 315, 250, 98, 75, 45],
+                        backgroundColor: [
+                            'rgba(37, 211, 102, 0.7)',
+                            'rgba(193, 53, 132, 0.7)',
+                            'rgba(24, 119, 242, 0.7)',
+                            'rgba(29, 161, 242, 0.7)',
+                            'rgba(0, 0, 0, 0.7)',
+                            'rgba(88, 101, 242, 0.7)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Ocorrências por Plataforma Digital',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Gráfico por gênero
+            const ctx3 = document.getElementById('genderChart').getContext('2d');
+            new Chart(ctx3, {
+                type: 'pie',
+                data: {
+                    labels: ['Feminino', 'Masculino', 'Não-binário', 'Outros'],
+                    datasets: [{
+                        label: 'Gênero',
+                        data: [832, 287, 64, 60],
+                        backgroundColor: [
+                            'rgba(236, 72, 153, 0.7)',
+                            'rgba(59, 130, 246, 0.7)',
+                            'rgba(167, 139, 250, 0.7)',
+                            'rgba(16, 185, 129, 0.7)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Relatos por Identidade de Gênero',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Mapa Leaflet
+            const map = L.map('map').setView([-15.7801, -47.9292], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Adicionar alguns marcadores de exemplo
+            const cities = [
+                {name: "São Paulo", coords: [-23.5505, -46.6333], count: 342},
+                {name: "Rio de Janeiro", coords: [-22.9068, -43.1729], count: 215},
+                {name: "Belo Horizonte", coords: [-19.9167, -43.9345], count: 98},
+                {name: "Brasília", coords: [-15.7801, -47.9292], count: 76},
+                {name: "Porto Alegre", coords: [-30.0346, -51.2177], count: 65},
+                {name: "Recife", coords: [-8.0476, -34.8770], count: 54},
+                {name: "Salvador", coords: [-12.9714, -38.5014], count: 48}
+            ];
+            
+            cities.forEach(city => {
+                const marker = L.circleMarker(city.coords, {
+                    radius: Math.sqrt(city.count) * 0.8,
+                    fillColor: '#7c3aed',
+                    color: '#4c1d95',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+                
+                marker.bindPopup(`<b>${city.name}</b><br>${city.count} relatos`);
+            });
+            
+            // Animação de entrada
+            const fadeElements = document.querySelectorAll('.fade-in');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {threshold: 0.1});
+            
+            fadeElements.forEach(el => {
+                el.style.opacity = '0';
+                observer.observe(el);
+            });
+        });
+    </script>
+</body>
+</html>
+
